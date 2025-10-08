@@ -1,4 +1,3 @@
-// server.js
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -20,30 +19,31 @@ if (!process.env.MONGO_URI) {
 
 import session from 'express-session';
 const app = express();
+
 // Observability: Sentry (if DSN provided) & pino logger
-import Sentry from '@sentry/node';
+import * as Sentry from '@sentry/node';
+import * as SentryTracing from '@sentry/tracing';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
+
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+
 // Sentry error monitoring is disabled due to missing/invalid DSN
-// const Sentry = require('@sentry/node');
-// const SentryTracing = require('@sentry/tracing');
-// if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'your_sentry_dsn') {
-//     Sentry.init({
-//         dsn: process.env.SENTRY_DSN,
-//         tracesSampleRate: 1.0,
-//     });
-//     app.use(Sentry.Handlers.requestHandler());
-//     app.use(Sentry.Handlers.tracingHandler());
-//   }
-// ...existing code...
+if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'your_sentry_dsn') {
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        tracesSampleRate: 1.0,
+    });
+    app.use(Sentry.Handlers.requestHandler());
+    app.use(Sentry.Handlers.tracingHandler());
+}
+
 // Preferred port
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PREFERRED_PORT = parseInt(process.env.PORT || '5000', 10);
+const PREFERRED_PORT = parseInt(process.env.PORT, 10);
 let PORT = PREFERRED_PORT;
 const MONGO_URI = process.env.MONGO_URI;
-
 
 // Security & parsing middleware
 app.set('trust proxy', 1); // if behind nginx / load balancer
@@ -71,10 +71,6 @@ app.use(session({
 
 // Structured request logging
 app.use(pinoHttp({ logger }));
-
-
-
-
 
 // Routes
 import authRoutes from './src/routes/authRoutes.js';
@@ -105,7 +101,6 @@ app.get('/api/health', (req, res) => {
 app.get('/healthz', (req, res) => {
     res.json({ status: 'ok', message: 'Health alias', time: new Date().toISOString() });
 });
-
 
 // 404 handler
 app.use((req, res, next) => {
